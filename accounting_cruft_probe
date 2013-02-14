@@ -27,7 +27,7 @@ use warnings;
 use File::Find;
 use Cpanel::MysqlUtils ();
 
-my $version = '1.0';
+my $version = '1.0.2';
 
 my ($account, $is_account, $is_active, $domain, $termination_date, $check_for, @userdata_mains, @users_files, $users_file, @results);
 my $is_subaddonparked = 0;
@@ -60,7 +60,6 @@ sub validate_and_build_variables {
         print "accounting_cruft_probe sub.domain.tld\n\n";
         exit 1;
     }
-    # add in more logic below to disallow invalid characters, non-FQDN, etc
     if ($ARGV[0] =~ /\./) {  # if the input contains a period
         $domain = $ARGV[0];  # assume to check for a domain (accounts cannot contain periods)
     } else {
@@ -168,6 +167,7 @@ sub check_cruft {
         outro ();
     }
     if ($is_account == 1) {
+        check_user_exists ();
         check_homedir_exists ();
         check_userdomains ();
         check_httpd_conf ();
@@ -176,6 +176,15 @@ sub check_cruft {
         check_dns_only ();
         check_mysql ();
         outro ();
+    }
+}
+
+
+sub check_user_exists {
+    # check if a user is present on the system
+    my $user = (getpwnam $account);
+    if (defined $user) {  # if any value is found
+       push (@results, ("system user is present - $account"));
     }
 }
 
@@ -240,7 +249,7 @@ sub check_userdata_mains {
 }
 
 
-sub check_users_files {  # reused code from subaddonparked check; investigate consolidating
+sub check_users_files {
     opendir (my $dh, '/var/cpanel/users')
         or warn "could not open /var/cpanel/users\n";
         while ($users_file = readdir($dh)) {
@@ -362,7 +371,7 @@ sub check_mysql {
 
 sub outro {
     if ($is_account == 1 and $is_subaddonparked == 0) {
-        print "it appears $domain was terminated on $termination_date\n\n";
+        print "it appears $domain ($account) was terminated on $termination_date\n\n";
         print_results ();
     } elsif ($is_subaddonparked == 1) {  # results for subaddonparked
         print "it appears $domain ";
