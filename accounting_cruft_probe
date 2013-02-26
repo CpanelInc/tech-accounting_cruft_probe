@@ -27,13 +27,14 @@ use warnings;
 use File::Find;
 use Cpanel::MysqlUtils ();
 
-my $version = '1.0.2';
+my $version = '1.0.4';
 
 my ($account, $is_account, $is_active, $domain, $termination_date, $check_for, @userdata_mains, @users_files, $users_file, @results);
 my $is_subaddonparked = 0;
 
 
 ### input and intro
+initial_checks ();
 validate_and_build_variables ();
 intro ();
 
@@ -47,12 +48,21 @@ outro ();
 
 
 ### subs
-sub validate_and_build_variables {
+sub initial_checks {
     my $login = (getpwuid $>);
     if ($login ne 'root') {
         print "accounting_cruft_probe must be run as root\n\n";
         exit 1;
     }
+    chomp (my $os = `uname`);
+    if ($os eq 'FreeBSD') {  # since reasonably, this is the only other thing that will show up in uname for supported OSs, no need to expand this to more checks, yet 
+        print "accounting_cruft_probe does not support FreeBSD at this time\n\n";
+        exit 1;
+    }
+}
+
+
+sub validate_and_build_variables {
     if (!defined @ARGV || ($ARGV[0] =~ m/--help/) || (scalar(@ARGV) > 1)) {  # if there are no arguments, --help is passed, or there are more than 1 arg
         print "usage:\n";  # give the usage
         print "accounting_cruft_probe username\n";
@@ -61,9 +71,9 @@ sub validate_and_build_variables {
         exit 1;
     }
     if ($ARGV[0] =~ /\./) {  # if the input contains a period
-        $domain = $ARGV[0];  # assume to check for a domain (accounts cannot contain periods)
+        $domain = lc($ARGV[0]);  # assume to check for a domain (accounts cannot contain periods), convert string to lowercase
     } else {
-        $account = $ARGV[0];
+        $account = lc($ARGV[0]);  # convert string to lowercase
     }
 }
 
