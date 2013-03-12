@@ -27,7 +27,7 @@ use warnings;
 use File::Find;
 use Cpanel::MysqlUtils ();
 
-my $version = '1.0.4';
+my $version = '1.0.5';
 
 my ($account, $is_account, $is_active, $domain, $termination_date, $check_for, @userdata_mains, @users_files, $users_file, @results);
 my $is_subaddonparked = 0;
@@ -124,7 +124,7 @@ sub check_account_active {
     close $fh;
     if ($is_active == 1) {
         print "it appears $domain ($account) is still active on this server\n\n";
-        exit;
+#        exit;
     }
     if (defined $account and !defined $domain) {  # the check will gather both of the variables from the accounting.log, if the account has been on the server
         print "it appears $account has never been active on this server\n\n";
@@ -134,7 +134,7 @@ sub check_account_active {
 
 
 sub check_subaddonparked_active {
-    if ($is_account == 0 || $is_account == 1 and $is_active == 0) {  # [bug fix] where account was once terminated, then re-added as addon domain, returned false positive
+    if ($is_account == 0 || $is_account == 1 and $is_active == 0) {  # where account was once terminated, then re-added as addon domain, returned false positive
         opendir (my $dh, '/var/cpanel/users')
             or warn "could not open /var/cpanel/users\n";
             while ($users_file = readdir($dh)) {
@@ -351,7 +351,7 @@ sub check_dns_only {
 
 
 sub check_mysql {
-    my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"$account\"");
+    my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"^$account\$\"");
     if ($check_mysql_users =~ /^ERROR/) {
         print "$check_mysql_users\n\n";
         last;
