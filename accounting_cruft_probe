@@ -134,7 +134,7 @@ sub check_account_active {
 
 
 sub check_subaddonparked_active {
-    if ($is_account == 0 || $is_account == 1 and $is_active == 0) {  # [bug fix] where account was once terminated, then re-added as addon domain, returned false positive
+    if ($is_account == 0 || $is_account == 1 and $is_active == 0) {  # where account was once terminated, then re-added as addon domain, returned false positive
         opendir (my $dh, '/var/cpanel/users')
             or warn "could not open /var/cpanel/users\n";
             while ($users_file = readdir($dh)) {
@@ -351,7 +351,7 @@ sub check_dns_only {
 
 
 sub check_mysql {
-    my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"$account\$\"");
+    my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"^$account\$\"");
     if ($check_mysql_users =~ /^ERROR/) {
         print "$check_mysql_users\n\n";
         last;
