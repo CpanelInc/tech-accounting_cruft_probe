@@ -27,7 +27,7 @@ use warnings;
 use File::Find;
 use Cpanel::MysqlUtils ();
 
-my $version = '1.0.5';
+my $version = '1.0.6';
 
 my ($account, $is_account, $is_active, $domain, $termination_date, $check_for, @userdata_mains, @users_files, $users_file, @results);
 my $is_subaddonparked = 0;
@@ -124,7 +124,7 @@ sub check_account_active {
     close $fh;
     if ($is_active == 1) {
         print "it appears $domain ($account) is still active on this server\n\n";
-#        exit;
+        exit;
     }
     if (defined $account and !defined $domain) {  # the check will gather both of the variables from the accounting.log, if the account has been on the server
         print "it appears $account has never been active on this server\n\n";
