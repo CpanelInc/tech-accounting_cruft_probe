@@ -24,13 +24,13 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.0';
+my $version = '2.1.1';
 
 use File::Find;
 use Cpanel::MysqlUtils;
 use Getopt::Long;
 my ($account, $subaddonparked, $help);
-GetOptions ("account=s" => \$account,  # [todo] investigate into why match happens at passing variables (-s --subaddonp)
+GetOptions ("account=s" => \$account,
             "subaddonparked=s" 	=> \$subaddonparked,
             "help"      => \$help);
 
@@ -57,11 +57,11 @@ sub print_help {
     print "on a cPanel server\n\n";
     print "usage:\n\n";
     print "./accounting_cruft_probe\n";
-    print "--help\n";
+    print "-h --help\n";
     print "\tdisplays this dialogue\n\n";
-    print "--account [username|domain.tld]\n";
+    print "-a --account [username|domain.tld]\n";
     print "\tcheck for account level cruft\n\n";
-    print "--subaddonparked [domain.tld|sub.domain.tld]\n";
+    print "-s --subaddonparked [domain.tld|sub.domain.tld]\n";
     print "\tcheck for sub|addon|parked domain cruft\n";
 }
 
@@ -261,7 +261,7 @@ sub check_userdata {
     my @directories = qw(/var/cpanel/users /var/cpanel/userdata);
     find (\&locations_search_for, @directories);
     sub locations_search_for {
-        if (/^$username/) {
+        if (/^$username$/) {
             push (@results, $File::Find::name);
         }
     }
