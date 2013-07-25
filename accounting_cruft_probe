@@ -24,86 +24,107 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
+my $version = '2.1.0';
+
 use File::Find;
-use Cpanel::MysqlUtils ();
+use Cpanel::MysqlUtils;
+use Getopt::Long;
+my ($account, $subaddonparked, $help);
+GetOptions ("account=s" => \$account,  # [todo] investigate into why match happens at passing variables (-s --subaddonp)
+            "subaddonparked=s" 	=> \$subaddonparked,
+            "help"      => \$help);
 
-my $version = '1.0.6';
+print_intro() && print_help() && exit_0() if $help;
+print_intro() && print_help() && exit_0() unless ($account or $subaddonparked);
 
-my ($account, $is_account, $is_active, $domain, $termination_date, $check_for, @userdata_mains, @users_files, $users_file, @results);
-my $is_subaddonparked = 0;
+my ($username, $domain, $termination_date, $check_for, @userdata_mains, @results);
+my $is_active = 0;
 
-
-### input and intro
-initial_checks ();
-validate_and_build_variables ();
-intro ();
-
-### checks
-check_account_active ();
-check_subaddonparked_active ();
-check_cruft ();
-
-### results
-outro ();
+### initial and input processing
+initial_checks();
+process_options();  # the route through the script is determined by switches and input
 
 
 ### subs
-sub initial_checks {
-    my $login = (getpwuid $>);
-    if ($login ne 'root') {
-        print "accounting_cruft_probe must be run as root\n\n";
-        exit 1;
-    }
-    chomp (my $os = `uname`);
-    if ($os eq 'FreeBSD') {  # since reasonably, this is the only other thing that will show up in uname for supported OSs, no need to expand this to more checks, yet 
-        print "accounting_cruft_probe does not support FreeBSD at this time\n\n";
-        exit 1;
-    }
-}
-
-
-sub validate_and_build_variables {
-    if (!defined @ARGV || ($ARGV[0] =~ m/--help/) || (scalar(@ARGV) > 1)) {  # if there are no arguments, --help is passed, or there are more than 1 arg
-        print "usage:\n";  # give the usage
-        print "accounting_cruft_probe username\n";
-        print "accounting_cruft_probe domain.tld\n";
-        print "accounting_cruft_probe sub.domain.tld\n\n";
-        exit 1;
-    }
-    if ($ARGV[0] =~ /\./) {  # if the input contains a period
-        $domain = lc($ARGV[0]);  # assume to check for a domain (accounts cannot contain periods), convert string to lowercase
-    } else {
-        $account = lc($ARGV[0]);  # convert string to lowercase
-    }
-}
-
-
-sub intro {
+sub print_intro {
     print "accounting_cruft_probe\n";
     print "version $version\n\n";
 }
 
+sub print_help {
+    print "script to check for remnants of a:\n";
+    print "deleted account, subdomain, addon, parked domain\n";
+    print "on a cPanel server\n\n";
+    print "usage:\n\n";
+    print "./accounting_cruft_probe\n";
+    print "--help\n";
+    print "\tdisplays this dialogue\n\n";
+    print "--account [username|domain.tld]\n";
+    print "\tcheck for account level cruft\n\n";
+    print "--subaddonparked [domain.tld|sub.domain.tld]\n";
+    print "\tcheck for sub|addon|parked domain cruft\n";
+}
+
+sub exit_0 {
+    print "\n\n";
+    exit 0;
+}
+
+sub initial_checks {
+    my $login = (getpwuid $>);
+    if ($login ne 'root') {
+        print "accounting_cruft_probe must be run as root\n";
+        exit_0();
+    }
+    chomp (my $os = `uname`);
+    if ($os eq 'FreeBSD') {  # since reasonably, this is the only other thing that will show up in uname for supported OSs, no need to expand this to more checks, yet 
+        print "accounting_cruft_probe does not support FreeBSD at this time\n";
+        exit_0();
+    }
+}
+
+sub process_options {
+    if ($account) {
+        if ($account =~ /\./) {
+            $domain = lc($account);  # accounts cannot contain periods
+        } else {
+            $username = lc($account);
+        }
+        print_intro();  # [todo] move this section out to not have double placement
+        check_account_active();
+    }
+    if ($subaddonparked) {
+        if ($subaddonparked !~ /\./) {  # [todo] investigate error checking within Getopt::long; expand regex to be more specific
+            print "Option sub must be a fully qualified domain name\n";
+            print_intro() && print_help() && exit_0();
+        } else {
+            $domain = lc($subaddonparked); 
+        }
+        print_intro();
+        check_subaddonparked_active();
+    }
+}
 
 sub check_account_active {
     my $accounting_log = '/var/cpanel/accounting.log';
-    $is_active = 0;
-    $is_account = 0;
+    my $is_account;
     my @temp;
 
-    if (defined $account) {  # if the accountname was passed in, begin the check with that
-        $check_for = ':' . $account . '$';
+    if (defined $username) {
+        $check_for = ':' . $username . '$';
     } else {
-        $check_for = ':' . $domain . ':';  # otherwise begin the check with the domain
+        $check_for = ':' . $domain . ':';
     }
+
     open (my $fh, '<', $accounting_log)
-        or die "unable to open $accounting_log\n\n";  # die here, since the accounting.log is pivotal for this script to work
+        or die "unable to open $accounting_log\n\n";
         foreach (<$fh>) {
             if (/$check_for/) {
                 $is_account = 1;
                 # set the other variable not passed in
-                if (!defined $account) {
+                if (!defined $username) {
                     @temp = split (/:/);
-                    chomp ($account = $temp[-1]);
+                    chomp ($username = $temp[-1]);
                 }
                 if (!defined $domain) {
                     my @temp = split(/:/);
@@ -122,82 +143,65 @@ sub check_account_active {
             }
         }
     close $fh;
+
+    print "according to $accounting_log\n";
+    if (defined $username and !defined $domain) {  # the check will gather both of the variables from the accounting.log, if the account has been on the server
+        print "$username has never been an active account\n";
+        exit_0();
+    }
+    if (defined $domain and !defined $username) {
+        print "$domain has never been an active account\n";  # [todo] combine this and last, stripping the check_for variable
+        exit_0();
+    }
     if ($is_active == 1) {
-        print "it appears $domain ($account) is still active on this server\n\n";
-        exit;
+        print "$domain ($username) is still an active account\n";
+        exit_0();
     }
-    if (defined $account and !defined $domain) {  # the check will gather both of the variables from the accounting.log, if the account has been on the server
-        print "it appears $account has never been active on this server\n\n";
-        exit;
-    }
-}
-
-
-sub check_subaddonparked_active {
-    if ($is_account == 0 || $is_account == 1 and $is_active == 0) {  # where account was once terminated, then re-added as addon domain, returned false positive
-        opendir (my $dh, '/var/cpanel/users')
-            or warn "could not open /var/cpanel/users\n";
-            while ($users_file = readdir($dh)) {
-                if ($users_file eq '.' || $users_file eq '..') {  # if the listing is a . or ..
-                    next;  # ignore and move on
-                }
-                push (@users_files, "/var/cpanel/users/$users_file");
-            }
-        closedir $dh;
-        undef $users_file;
-        foreach my $users_file (@users_files) {
-            open (my $fh, '<', $users_file)
-                or warn "could not open $users_file\n";
-                foreach (<$fh>) {
-                    if (/$domain/) {  # if domain is found
-                        $is_subaddonparked = 1;
-                        if (/DNS/) {
-                            $is_active = 1;
-                        }
-                        if (/XDNS/) {
-                            $is_active = 0;
-                        }
-                        last;
-                    }
-                }
-            close $fh;
-        }
+    if ($is_account == 1 and $is_active == 0) {
+        print "$domain ($username) was terminated on $termination_date\n\n";
+        ask_to_advance();
     }
 }
 
+sub ask_to_advance {
+    print "would you like to check for cruft? [y] ";
+    chomp (my $answer = <STDIN>);
+    $answer = lc ($answer);
+    if ($answer eq '' || $answer eq 'y' || $answer eq 'yes') {
+        check_cruft();
+        print_results();
+    } else {}
+    exit_0();
+}
 
+
+## cruft checks
 sub check_cruft {
-    if ($is_subaddonparked == 1) {
-        check_userdomains ();
-        check_userdata_mains ();
-        check_users_files ();
-        check_httpd_conf ();
-        check_zones ();
-        check_dns_only ();
-        outro ();
+    if ($account) {
+        check_user_exists();
+        check_homedir_exists();
+        check_userdomains();
+        check_httpd_conf();
+        check_userdata();
+        check_zones();
+        check_mysql();
+        check_dnsonly();
     }
-    if ($is_account == 1) {
-        check_user_exists ();
-        check_homedir_exists ();
-        check_userdomains ();
-        check_httpd_conf ();
-        check_locations ();
-        check_zones ();
-        check_dns_only ();
-        check_mysql ();
-        outro ();
+    if ($subaddonparked) {
+        check_userdomains();
+        check_userdata_mains();
+        check_httpd_conf();
+        check_zones();
+        check_dnsonly();
     }
 }
 
-
+# account level checks
 sub check_user_exists {
-    # check if a user is present on the system
-    my $user = (getpwnam $account);
-    if (defined $user) {  # if any value is found
-       push (@results, ("system user is present - $account"));
+    if (getpwnam $username) {
+       push (@results, ("system user is present - $username; remove with userdel"));
     }
 }
-
 
 sub check_homedir_exists {
     my $wwwacct_conf = '/etc/wwwacct.conf';
@@ -208,23 +212,22 @@ sub check_homedir_exists {
             if (/HOMEDIR/) {
                 $_ =~ s/HOMEDIR \///;
                 chomp ($_);
-                $homedir = "\/$_\/$account";
+                $homedir = "\/$_\/$username";
             }
         }
     close $fh;
-    if (-d $homedir) {  # check if that dir exists
+    if (-d $homedir) {
         push (@results, ('homedir - ' . $homedir));
     }
-    if ($homedir ne "\/home\/$account") {  # if the HOMEDIR setting isn't the traditional /home/$account
-        if (-d "/home/$account") {  # also check if the homedir is in the normal home
-            push (@results, ('homedir - ' . "/home/$account"));
+    if ($homedir ne "\/home\/$username") {  # if the HOMEDIR setting isn't the traditional /home/$account
+        if (-d "/home/$username") {  # also check if the homedir is in the normal home
+            push (@results, ('homedir - ' . "/home/$username"));
         }
     }
 }
 
-
 sub check_userdomains {
-    my @files = qw(/etc/userdatadomains /etc/trueuserdomains /etc/userdomains);
+    my @files = qw(/etc/userdomains /etc/userdatadomains /etc/trueuserdomains);
     foreach my $file (@files) {
         open(my $FH, '<', $file)
             or warn "could not open $file\n";
@@ -237,6 +240,132 @@ sub check_userdomains {
     }
 }
 
+sub check_httpd_conf {
+    my $httpd_conf = '/usr/local/apache/conf/httpd.conf';
+    open (my $fh, '<', $httpd_conf)
+        or warn "could not open $httpd_conf\n";
+        foreach (<$fh>) {
+            if (/ServerName $domain/) {
+                push (@results, "$httpd_conf - ServerName entry");
+            }
+            if (/ServerAlias/) {
+                if (/ $domain/ || / www.$domain/) {
+                    push (@results, "$httpd_conf - ServerAlias entry");
+                }
+            }
+        }
+    close $fh;
+}
+
+sub check_userdata {
+    my @directories = qw(/var/cpanel/users /var/cpanel/userdata);
+    find (\&locations_search_for, @directories);
+    sub locations_search_for {
+        if (/^$username/) {
+            push (@results, $File::Find::name);
+        }
+    }
+}
+
+sub check_zones {
+    my $named_conf = '/etc/named.conf';
+    open (my $fh, '<', $named_conf)
+        or warn "could not open $named_conf\n";
+        foreach (<$fh>) {
+            if (/^zone "$domain/) {
+                push (@results, $named_conf);
+                last;
+            }
+        }
+    close $fh;
+    my @zones_dir = qw(/var/named);
+    find (\&search_for, @zones_dir);
+    sub search_for {
+        if (/^$domain/) {
+            push (@results, $File::Find::name);
+        }
+    }
+}
+
+sub check_mysql {
+    my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"^$account\$\"");
+    if ($check_mysql_users =~ /^ERROR/) {
+        print "$check_mysql_users\n";
+        last;
+    }
+    my @mysql_users = split ("\n", "$check_mysql_users");
+    if (@mysql_users) {
+        my %hash = map {$_, 1} @mysql_users;
+        @mysql_users = keys %hash;
+        foreach (@mysql_users) {
+            push (@results, ('MySQL user - ' . $_));
+        }
+    }
+    my $var_cpanel_databases_users = '/var/cpanel/databases/users.db';
+    open (my $fh, '<', $var_cpanel_databases_users)
+        or warn "could not open $var_cpanel_databases_users\n";
+        foreach (<$fh>) {
+            if (/$account/) {
+                push (@results, $var_cpanel_databases_users);
+                last;
+            }
+        }
+    close $fh;
+}
+
+sub check_dnsonly {
+    # check for dns clustering
+    if (-e '/var/cpanel/useclusteringdns') {
+        push (@results, 'DNS Clustering is enabled; zones may persist in the cluster');
+    }
+}
+
+# subaddonparked checks
+sub check_subaddonparked_active {
+    my ($users_file, @users_files);  # [todo] check and set other variables within their subs, if only they are using
+    opendir (my $dh, '/var/cpanel/users')
+        or warn "could not open /var/cpanel/users\n";
+        while ($users_file = readdir($dh)) {
+            if ($users_file eq '.' || $users_file eq '..') {  # if the listing is a . or ..
+                next;  # ignore and move on
+            }
+            push (@users_files, "/var/cpanel/users/$users_file");
+        }
+    closedir $dh;
+    undef $users_file;
+    foreach my $users_file (@users_files) {
+        open (my $fh, '<', $users_file)
+            or warn "could not open $users_file\n";
+            foreach (<$fh>) {
+                if (/\d+=$domain/) {
+                    my @temp = split ('/', $users_file);
+                    chomp ($username = $temp[-1]);  # set username from users file
+                    if (/DNS/) {
+                        $is_active = 1;
+                    }
+                    if (/XDNS/) {
+                        $is_active = 0;
+                    }
+                    last;
+                }
+            }
+        close $fh;
+    }
+
+    print "according to /var/cpanel/users/*\n";
+    if ($is_active == 1) {
+        print "$domain is still active under $username\n";
+        exit_0();
+    }
+    if ($is_active == 0 and !defined $username) {
+        print "$domain has never been a subaddonparked domain\n";
+        exit_0();
+    }
+    if ($is_active == 0 and defined $username) {
+        print "$domain is not longer active under account $username\n\n";
+        ask_to_advance();
+    }
+}
 
 sub check_userdata_mains {
     finddepth (\&build_userdata_mains, '/var/cpanel/userdata');
@@ -259,155 +388,14 @@ sub check_userdata_mains {
 }
 
 
-sub check_users_files {
-    opendir (my $dh, '/var/cpanel/users')
-        or warn "could not open /var/cpanel/users\n";
-        while ($users_file = readdir($dh)) {
-            if ($users_file eq '.' || $users_file eq '..') {  # if the listing is a . or ..
-                next;  # ignore and move on
-            }
-            push (@users_files, "/var/cpanel/users/$users_file");  # build array of users files
+## results
+sub print_results {
+    print "\nresults:\n";
+    if (scalar (@results) == 0) {
+        print "nothing was found\n";
+    } else {
+        foreach (@results) {
+            print "$_\n";
         }
-    closedir $dh;
-    undef $users_file;
-    foreach my $users_file (@users_files) {
-        open (my $fh, '<', $users_file)
-            or warn "could not open $users_file\n";
-            foreach (<$fh>) {
-                if (/$domain/) {
-                    if (/XDNS/) {
-                        last;
-                    } else {
-                        push (@results, $users_file);
-                        last;
-                    }
-                }
-            }
-        close $fh;
-    }
-}
-
-
-sub check_httpd_conf {
-    # check httpd.conf for ServerName and ServerAlias
-    my $httpd_conf = '/usr/local/apache/conf/httpd.conf';
-    open (my $fh, '<', $httpd_conf)
-        or warn "could not open $httpd_conf\n";
-        foreach (<$fh>) {
-            if (/ServerName $domain/) {
-                push (@results, "$httpd_conf - ServerName entry");
-            }
-            if (/ServerAlias/) {
-                if (/ $domain/) {
-                    push (@results, "$httpd_conf - ServerAlias entry");
-                }
-            }
-        }
-    close $fh;
-}
-
-
-sub check_locations {
-    # check for file names in the following dirs
-    my @directories = qw(/var/cpanel/users /var/cpanel/userdata);
-    find (\&locations_search_for, @directories);
-    sub locations_search_for {
-        if (/^$domain/) {
-            push (@results, $File::Find::name);
-        }
-    }
-}
-
-
-sub check_zones {
-    # check named.conf for entries
-    my $named_conf = '/etc/named.conf';
-    open (my $fh, '<', $named_conf)
-        or warn "could not open $named_conf\n";
-        foreach (<$fh>) {
-            if (/^zone "$domain/) {
-                push (@results, $named_conf);
-                last;
-            }
-        }
-    close $fh;
-    # check for zones
-    my @zones_dir = qw(/var/named);
-    find (\&search_for, @zones_dir);
-    sub search_for {
-        if (/^$domain/) {
-            push (@results, $File::Find::name);
-        }
-    }
-}
-
-
-sub check_dns_only {
-    # check for dns clustering
-    if (-e '/var/cpanel/useclusteringdns') {
-        push (@results, 'DNS Clustering is enabled; zones may persist in the cluster');
-    }
-}
-
-
-sub check_mysql {
-    my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"^$account\$\"");
-    if ($check_mysql_users =~ /^ERROR/) {
-        print "$check_mysql_users\n\n";
-        last;
-    }
-    # remove duplicates from the array
-    my @mysql_users = split ("\n", "$check_mysql_users");
-    if (@mysql_users) {
-        my %hash = map {$_, 1} @mysql_users;
-        @mysql_users = keys %hash;
-        foreach (@mysql_users) {
-            push (@results, ('MySQL user - ' . $_));
-        }
-    }
-    # check the users.db file for entries
-    my $var_cpanel_databases_users = '/var/cpanel/databases/users.db';
-    open (my $fh, '<', $var_cpanel_databases_users)
-        or warn "could not open $var_cpanel_databases_users\n";
-        foreach (<$fh>) {
-            if (/$account/) {
-                push (@results, $var_cpanel_databases_users);
-                last;
-            }
-        }
-    close $fh;
-}
-
-
-sub outro {
-    if ($is_account == 1 and $is_subaddonparked == 0) {
-        print "it appears $domain ($account) was terminated on $termination_date\n\n";
-        print_results ();
-    } elsif ($is_subaddonparked == 1) {  # results for subaddonparked
-        print "it appears $domain ";
-        if ($is_active == 1) {
-            print "is still active on this server\n\n";
-            exit;  # exit to not show the results
-        }
-        if ($is_active == 0) {
-            print "is no longer active on this server\n\n";  # will show results
-        }
-        print_results ();
-        exit;
-    } else {  # the default response, if it didn't fit into the other categories
-        print "it appears $domain has never been active on this server\n\n";
-        exit;  # will not show results
-    }
-    sub print_results {
-        print "results:\n";
-        if (scalar (@results) == 0) {
-            print "nothing was found\n\n";
-        } else {
-            foreach (@results) {
-                print "$_\n";
-            }
-        }
-        print "\n\n";
-        exit;
     }
 }
