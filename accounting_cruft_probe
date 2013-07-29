@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.1';
+my $version = '2.1.2';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -322,7 +322,7 @@ sub check_dnsonly {
 
 # subaddonparked checks
 sub check_subaddonparked_active {
-    my ($users_file, @users_files);  # [todo] check and set other variables within their subs, if only they are using
+    my ($users_file, @users_files);
     opendir (my $dh, '/var/cpanel/users')
         or warn "could not open /var/cpanel/users\n";
         while ($users_file = readdir($dh)) {
@@ -362,7 +362,7 @@ sub check_subaddonparked_active {
         exit_0();
     }
     if ($is_active == 0 and defined $username) {
-        print "$domain is not longer active under account $username\n\n";
+        print "$domain is no longer active under account $username\n\n";
         ask_to_advance();
     }
 }
