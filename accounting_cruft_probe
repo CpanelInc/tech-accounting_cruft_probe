@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.2';
+my $version = '2.1.3';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -190,6 +190,7 @@ sub check_cruft {
     if ($subaddonparked) {
         check_userdomains();
         check_userdata_mains();
+        check_users_files();
         check_httpd_conf();
         check_zones();
         check_dnsonly();
@@ -378,9 +379,38 @@ sub check_userdata_mains {
         open (my $fh, '<', $userdata_main)
             or warn "could not open $userdata_main\n";
             foreach (<$fh>) {
-                if (/$domain/) {
+                if (/ $domain/) {
                     push (@results, $userdata_main);
                     last;
+                }
+            }
+        close $fh;
+    }
+}
+
+sub check_users_files {  # yes, having double code in here from earlier, attempting to sort an issue
+    my ($users_file, @users_files);
+    opendir (my $dh, '/var/cpanel/users')
+        or warn "could not open /var/cpanel/users\n";
+        while ($users_file = readdir($dh)) {
+            if ($users_file eq '.' || $users_file eq '..') {  # if the listing is a . or ..
+                next;  # ignore and move on
+            }
+            push (@users_files, "/var/cpanel/users/$users_file");  # build array of users files
+        }
+    closedir $dh;
+    undef $users_file;
+    foreach my $users_file (@users_files) {
+        open (my $fh, '<', $users_file)
+            or warn "could not open $users_file\n";
+            foreach (<$fh>) {
+                if (/$domain/) {
+                    if (/XDNS/) {
+                        last;
+                    } else {
+                        push (@results, $users_file);
+                        last;
+                    }
                 }
             }
         close $fh;
