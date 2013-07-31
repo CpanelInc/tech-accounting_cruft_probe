@@ -388,7 +388,7 @@ sub check_userdata_mains {
     }
 }
 
-sub check_users_files {  # yes, having double code in here from earlier, attempting to sort an issue
+sub check_users_files {  # yes, having double code in here from earlier, attempting to sort an issue; will shorten later
     my ($users_file, @users_files);
     opendir (my $dh, '/var/cpanel/users')
         or warn "could not open /var/cpanel/users\n";
@@ -404,7 +404,7 @@ sub check_users_files {  # yes, having double code in here from earlier, attempt
         open (my $fh, '<', $users_file)
             or warn "could not open $users_file\n";
             foreach (<$fh>) {
-                if (/$domain/) {
+                if (/\d+=$domain/) {
                     if (/XDNS/) {
                         last;
                     } else {
