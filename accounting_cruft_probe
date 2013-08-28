@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.4';
+my $version = '2.1.5';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -37,8 +37,9 @@ GetOptions ("account=s" => \$account,
 print_intro() && print_help() && exit_0() if $help;
 print_intro() && print_help() && exit_0() unless ($account or $subaddonparked);
 
-my ($username, $domain, $termination_date, $check_for, @userdata_mains, @results);
+my ($username, $domain, $termination_date, $check_for, @userdata_files, @results);
 my $is_active = 0;
+
 
 ### initial and input processing
 initial_checks();
@@ -181,6 +182,7 @@ sub check_cruft {
         check_user_exists();
         check_homedir_exists();
         check_userdomains();
+        check_userdata_files();
         check_httpd_conf();
         check_userdata();
         check_zones();
@@ -189,7 +191,7 @@ sub check_cruft {
     }
     if ($subaddonparked) {
         check_userdomains();
-        check_userdata_mains();
+        check_userdata_files();
         check_users_files();
         check_httpd_conf();
         check_zones();
@@ -238,6 +240,23 @@ sub check_userdomains {
                 }
             }
         close $FH;
+    }
+}
+
+sub check_userdata_files {
+    finddepth (\&build_userdata_files, '/var/cpanel/userdata');
+    sub build_userdata_files {
+        push (@userdata_files, $File::Find::name);  # build an array with all userdata files
+    }
+    foreach my $userdata_file (@userdata_files) {
+        open (my $fh, '<', $userdata_file)
+            or warn "could not open $userdata_file\n";
+            foreach (<$fh>) {
+                if (/ $domain/ and ($_ !~ /serveradmin/)) {
+                    push (@results, $userdata_file);
+                }
+            }
+        close $fh;
     }
 }
 
@@ -365,26 +384,6 @@ sub check_subaddonparked_active {
     if ($is_active == 0 and defined $username) {
         print "$domain is no longer active under account $username\n\n";
         ask_to_advance();
-    }
-}
-
-sub check_userdata_mains {
-    finddepth (\&build_userdata_mains, '/var/cpanel/userdata');
-    sub build_userdata_mains {
-        if (/main$/) {
-            push (@userdata_mains, $File::Find::name);  # build an array with all userdata/main files
-        }
-    }
-    foreach my $userdata_main (@userdata_mains) {
-        open (my $fh, '<', $userdata_main)
-            or warn "could not open $userdata_main\n";
-            foreach (<$fh>) {
-                if (/ $domain/) {
-                    push (@results, $userdata_main);
-                    last;
-                }
-            }
-        close $fh;
     }
 }
 
