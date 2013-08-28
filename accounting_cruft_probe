@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.3';
+my $version = '2.1.4';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -306,7 +306,7 @@ sub check_mysql {
     open (my $fh, '<', $var_cpanel_databases_users)
         or warn "could not open $var_cpanel_databases_users\n";
         foreach (<$fh>) {
-            if (/$account/) {
+            if (/$account^/) {
                 push (@results, $var_cpanel_databases_users);
                 last;
             }
