@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.6';
+my $version = '2.1.7';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -185,7 +185,6 @@ sub check_cruft {
         check_userdata();
         check_userdata_files();
         check_httpd_conf();
-        check_userdata();
         check_zones();
         check_mysql();
         check_dnsonly();
