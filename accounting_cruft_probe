@@ -182,6 +182,7 @@ sub check_cruft {
         check_user_exists();
         check_homedir_exists();
         check_userdomains();
+        check_userdata();
         check_userdata_files();
         check_httpd_conf();
         check_userdata();
@@ -243,6 +244,16 @@ sub check_userdomains {
     }
 }
 
+sub check_userdata {
+    my @directories = qw(/var/cpanel/users /var/cpanel/userdata);
+    find (\&locations_search_for, @directories);
+    sub locations_search_for {
+        if (/^$username$/) {
+            push (@results, $File::Find::name);
+        }
+    }
+}
+
 sub check_userdata_files {
     finddepth (\&build_userdata_files, '/var/cpanel/userdata');
     sub build_userdata_files {
@@ -275,16 +286,6 @@ sub check_httpd_conf {
             }
         }
     close $fh;
-}
-
-sub check_userdata {
-    my @directories = qw(/var/cpanel/users /var/cpanel/userdata);
-    find (\&locations_search_for, @directories);
-    sub locations_search_for {
-        if (/^$username$/) {
-            push (@results, $File::Find::name);
-        }
-    }
 }
 
 sub check_zones {
