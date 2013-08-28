@@ -246,7 +246,7 @@ sub check_userdomains {
 sub check_userdata_files {
     finddepth (\&build_userdata_files, '/var/cpanel/userdata');
     sub build_userdata_files {
-        push (@userdata_files, $File::Find::name);  # build an array with all userdata/main files
+        push (@userdata_files, $File::Find::name);  # build an array with all userdata files
     }
     foreach my $userdata_file (@userdata_files) {
         open (my $fh, '<', $userdata_file)
