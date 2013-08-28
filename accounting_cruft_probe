@@ -252,9 +252,8 @@ sub check_userdata_files {
         open (my $fh, '<', $userdata_file)
             or warn "could not open $userdata_file\n";
             foreach (<$fh>) {
-                if (/ $domain/) {
+                if (/ $domain/ and ($_ !~ /serveradmin/)) {
                     push (@results, $userdata_file);
-                    last;
                 }
             }
         close $fh;
