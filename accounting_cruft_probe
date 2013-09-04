@@ -24,18 +24,19 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.7';
+my $version = '2.1.8';
 
 use File::Find;
 use Cpanel::MysqlUtils;
 use Getopt::Long;
-my ($account, $subaddonparked, $help);
+my ($account, $subaddonparked, $help, $manual);
 GetOptions ("account=s" => \$account,
-            "subaddonparked=s" 	=> \$subaddonparked,
-            "help"      => \$help);
+            "subaddonparked=s" => \$subaddonparked,
+            "manual=s" => \$manual,
+            "help" => \$help);
 
 print_intro() && print_help() && exit_0() if $help;
-print_intro() && print_help() && exit_0() unless ($account or $subaddonparked);
+print_intro() && print_help() && exit_0() unless ($account or $subaddonparked or $manual);
 
 my ($username, $domain, $termination_date, $check_for, @userdata_files, @results);
 my $is_active = 0;
@@ -56,14 +57,16 @@ sub print_help {
     print "script to check for remnants of a:\n";
     print "deleted account, subdomain, addon, parked domain\n";
     print "on a cPanel server\n\n";
-    print "usage:\n\n";
-    print "./accounting_cruft_probe\n";
+    print "usage:\n";
+    print "./accounting_cruft_probe\n\n";
     print "-h --help\n";
     print "\tdisplays this dialogue\n\n";
     print "-a --account [username|domain.tld]\n";
     print "\tcheck for account level cruft\n\n";
     print "-s --subaddonparked [domain.tld|sub.domain.tld]\n";
-    print "\tcheck for sub|addon|parked domain cruft\n";
+    print "\tcheck for sub|addon|parked domain cruft\n\n";
+    print "-m --manual [domain.tld|sub.domain.tld]\n";
+    print "\tmanually check through directories and files\n";
 }
 
 sub exit_0 {
@@ -96,13 +99,24 @@ sub process_options {
     }
     if ($subaddonparked) {
         if ($subaddonparked !~ /\./) {  # [todo] investigate error checking within Getopt::long; expand regex to be more specific
-            print "Option sub must be a fully qualified domain name\n";
+            print "Option sub must be a fully qualified domain name\n";  # modify this to accurately give error
             print_intro() && print_help() && exit_0();
         } else {
             $domain = lc($subaddonparked); 
         }
         print_intro();
         check_subaddonparked_active();
+    }
+    if ($manual) {
+        if ($manual !~ /\./) {
+            print "Option sub must be a fully qualified domain name\n";
+            print_intro() && print_help() && exit_0();
+        } else {
+            $domain = lc($manual);
+        }
+        print_intro();
+        print_disclaimer();
+        ask_to_advance();
     }
 }
 
@@ -159,20 +173,31 @@ sub check_account_active {
         exit_0();
     }
     if ($is_account == 1 and $is_active == 0) {
-        print "$domain ($username) was terminated on $termination_date\n\n";
-        ask_to_advance();
+        print "$domain ($username) was terminated on $termination_date\n";
+        #ask_to_advance();
+        check_cruft();
+        print_results();
+        exit_0();
     }
 }
 
+#sub ask_to_advance {
+#    print "would you like to check for cruft? [y] ";
+#    chomp (my $answer = <STDIN>);
+#    $answer = lc ($answer);
+#    if ($answer eq '' || $answer eq 'y' || $answer eq 'yes') {
+#        check_cruft();
+#        print_results();
+#    } else {}
+#    exit_0();
+#}
+
 sub ask_to_advance {
-    print "would you like to check for cruft? [y] ";
-    chomp (my $answer = <STDIN>);
-    $answer = lc ($answer);
-    if ($answer eq '' || $answer eq 'y' || $answer eq 'yes') {
-        check_cruft();
-        print_results();
-    } else {}
-    exit_0();
+    print '[press any key to continue] ';
+    my $input = <STDIN>;
+    check_cruft();
+    print_results();
+    exit_0;
 }
 
 
@@ -196,6 +221,9 @@ sub check_cruft {
         check_httpd_conf();
         check_zones();
         check_dnsonly();
+    }
+    if ($manual) {
+        print "doing things here...\n"
     }
 }
 
@@ -382,8 +410,11 @@ sub check_subaddonparked_active {
         exit_0();
     }
     if ($is_active == 0 and defined $username) {
-        print "$domain is no longer active under account $username\n\n";
-        ask_to_advance();
+        print "$domain is no longer active under account $username\n";
+        #ask_to_advance();
+        check_cruft();
+        print_results();
+        exit_0;
     }
 }
 
@@ -414,6 +445,13 @@ sub check_users_files {  # yes, having double code in here from earlier, attempt
             }
         close $fh;
     }
+}
+
+# manual checks
+sub print_disclaimer {
+    print "please be aware that manual mode contains no checks if the domain is active on the server.\n";
+    print "it simply performs a grep through directories where mentions of the domain would be.\n";
+    print "please use this feature with knowledge of checking if the domain is active or not.\n\n";
 }
 
 
