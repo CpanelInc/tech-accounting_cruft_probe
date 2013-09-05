@@ -193,7 +193,7 @@ sub check_account_active {
 #}
 
 sub ask_to_advance {
-    print '[press any key to continue] ';
+    print '[press enter to continue] ';
     my $input = <STDIN>;
     check_cruft();
     print_results();
@@ -223,7 +223,7 @@ sub check_cruft {
         check_dnsonly();
     }
     if ($manual) {
-        print "doing things here...\n"
+        search("$domain", '/var/cpanel/users/*');
     }
 }
 
@@ -452,6 +452,15 @@ sub print_disclaimer {
     print "please be aware that manual mode contains no checks if the domain is active on the server.\n";
     print "it simply performs a grep through directories where mentions of the domain would be.\n";
     print "please use this feature with knowledge of checking if the domain is active or not.\n\n";
+}
+
+sub search {
+    if (@_ != 2) {print "WARNING! &search needs two arguments\n"; return -1;}
+    chomp (my @temp = `grep $_[0] $_[1]`);
+    #my @temp = `find $_[1] -type f -print0 | xargs -r0 grep -l -FH $_[0]|grep -v "Binary\|\,v"`;
+    foreach (@temp) {
+        push (@results, $_);
+    }
 }
 
 
