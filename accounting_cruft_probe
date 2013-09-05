@@ -223,7 +223,11 @@ sub check_cruft {
         check_dnsonly();
     }
     if ($manual) {
+        search("$domain", '/etc/*');
+        search("$domain", '/var/named/*');
         search("$domain", '/var/cpanel/users/*');
+        search("$domain", '/var/cpanel/userdata/*/*');
+        check_httpd_conf();
     }
 }
 
@@ -447,17 +451,18 @@ sub check_users_files {  # yes, having double code in here from earlier, attempt
     }
 }
 
-# manual checks
+## manual checks
 sub print_disclaimer {
     print "please be aware that manual mode contains no checks if the domain is active on the server.\n";
-    print "it simply performs a grep through directories where mentions of the domain would be.\n";
-    print "please use this feature with knowledge of checking if the domain is active or not.\n\n";
+    print "it simply performs a grep through directories where mentions of the domain would be, then returns that filename\n";
+    print "please use this feature with knowledge of checking if the domain is active or not, as well as verifying the entry in the file\n\n";
 }
 
 sub search {
     if (@_ != 2) {print "WARNING! &search needs two arguments\n"; return -1;}
-    chomp (my @temp = `grep $_[0] $_[1]`);
-    #my @temp = `find $_[1] -type f -print0 | xargs -r0 grep -l -FH $_[0]|grep -v "Binary\|\,v"`;
+    chomp (my @temp = `grep $_[0] $_[1]|grep -v ',v:'|grep -v 'Binary'|cut -d':' -f1`);
+    my %hash = map {$_, 1} @temp;
+    @temp = keys %hash;
     foreach (@temp) {
         push (@results, $_);
     }
