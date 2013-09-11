@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.9';
+my $version = '2.1.10';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -366,7 +366,7 @@ sub check_subaddonparked_active {
     opendir (my $dh, '/var/cpanel/users')
         or warn "could not open /var/cpanel/users\n";
         while ($users_file = readdir($dh)) {
-            if ($users_file eq '.' || $users_file eq '..') {  # if the listing is a . or ..
+            if ($users_file =~ '.' ) {  # if '.', '..', or .whatever; account names cannot have periods
                 next;  # ignore and move on
             }
             push (@users_files, "/var/cpanel/users/$users_file");
