@@ -345,7 +345,7 @@ sub check_mysql {
     open (my $fh, '<', $var_cpanel_databases_users)
         or warn "could not open $var_cpanel_databases_users\n";
         foreach (<$fh>) {
-            if (/$account^/) {
+            if (/$account/) {
                 push (@results, $var_cpanel_databases_users);
                 last;
             }
