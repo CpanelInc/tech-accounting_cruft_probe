@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.11';
+my $version = '2.1.12';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -35,7 +35,6 @@ GetOptions ("account=s" => \$account,
             "manual=s" => \$manual,
             "help" => \$help);
 
-print_intro() && print_help() && exit_0() if $help;
 print_intro() && print_help() && exit_0() unless ($account or $subaddonparked or $manual);
 
 my ($username, $domain, $termination_date, $check_for, @userdata_files, @results);
