@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.11';
+my $version = '2.1.12';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -35,7 +35,6 @@ GetOptions ("account=s" => \$account,
             "manual=s" => \$manual,
             "help" => \$help);
 
-print_intro() && print_help() && exit_0() if $help;
 print_intro() && print_help() && exit_0() unless ($account or $subaddonparked or $manual);
 
 my ($username, $domain, $termination_date, $check_for, @userdata_files, @results);
@@ -49,24 +48,24 @@ process_options();  # the route through the script is determined by switches and
 
 ### subs
 sub print_intro {
-    print "accounting_cruft_probe\n";
-    print "version $version\n\n";
+    print "accounting_cruft_probe\n" .
+          "version $version\n\n";
 }
 
 sub print_help {
-    print "script to check for remnants of a:\n";
-    print "deleted account, subdomain, addon, parked domain\n";
-    print "on a cPanel server\n\n";
-    print "usage:\n";
-    print "./accounting_cruft_probe\n\n";
-    print "-h --help\n";
-    print "\tdisplays this dialogue\n\n";
-    print "-a --account [username|domain.tld]\n";
-    print "\tcheck for account level cruft\n\n";
-    print "-s --subaddonparked [domain.tld|sub.domain.tld]\n";
-    print "\tcheck for sub|addon|parked domain cruft\n\n";
-    print "-m --manual [domain.tld|sub.domain.tld]\n";
-    print "\tmanually check through directories and files\n";
+    print "script to check for remnants of a:\n" .
+          "deleted account, subdomain, addon, parked domain\n" .
+          "on a cPanel server\n\n" .
+          "usage:\n" .
+          "./accounting_cruft_probe\n\n" .
+          "-h --help\n" .
+          "\tdisplays this dialogue\n\n" .
+          "-a --account [username|domain.tld]\n" .
+          "\tcheck for account level cruft\n\n" .
+          "-s --subaddonparked [domain.tld|sub.domain.tld]\n" .
+          "\tcheck for sub|addon|parked domain cruft\n\n" .
+          "-m --manual [domain.tld|sub.domain.tld]\n" .
+          "\tmanually check through directories and files\n";
 }
 
 sub exit_0 {
@@ -441,9 +440,9 @@ sub check_users_files {  # yes, having double code in here from earlier, attempt
 
 ## manual checks
 sub print_disclaimer {
-    print "please be aware that manual mode contains no checks if the domain is active on the server.\n";
-    print "it simply performs a (loose) grep through directories, then returns the filename of a match.\n";
-    print "please use this feature with knowledge of checking if the domain is active or not, as well as verifying the entry in the file.\n\n";
+    print "please be aware that manual mode contains no checks if the domain is active on the server.\n" .
+          "it simply performs a (loose) grep through directories, then returns the filename of a match.\n" .
+          "please use this feature with knowledge of checking if the domain is active or not, as well as verifying the entry in the file.\n\n";
 }
 
 sub search {
