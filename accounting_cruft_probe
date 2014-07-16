@@ -6,8 +6,7 @@ if 0;
 
 # accounting cruft probe
 
-# script to check for remnants of a:
-# deleted account, subdomain, addon, parked domain
+# script to check for remnants of a deleted account, subdomain, addon, parked domain
 # on a cPanel server
 
 # Copyright(c) 2013 cPanel, Inc.
@@ -17,6 +16,7 @@ if 0;
 # Unauthorized copying is prohibited
 
 # maintained by: Blaine Motsinger
+# Modified 7/15/2014 - Peter Elsner (added check option even if account is listed as active)
 
 
 BEGIN {unshift @INC, '/usr/local/cpanel';}
@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.12';
+my $version = '2.1.13';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -169,6 +169,21 @@ sub check_account_active {
     }
     if ($is_active == 1) {
         print "$domain ($username) is still an active account\n";
+        # here we should ask if they wish to continue checking?  If yes, continue, if no exit.
+        # Peter Elsner - 7/15/2014
+        print "Continue checking for cruft (Y/n): ";
+        my $Continue=<STDIN>;
+        chomp($Continue);
+        if (!($Continue)) { 
+		$Continue = "Y"; 
+	}
+        $Continue=uc(substr($Continue,0,1));  ## Grab only the first character and uppercase it
+        if ($Continue ne "Y") { 
+           print "Checking stopped!\n";
+           exit_0();
+        }
+        check_cruft();
+        print_results();
         exit_0();
     }
     if ($is_account == 1 and $is_active == 0) {
