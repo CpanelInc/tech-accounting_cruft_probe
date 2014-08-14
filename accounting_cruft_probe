@@ -171,15 +171,14 @@ sub check_account_active {
         print "$domain ($username) is still an active account\n";
         # here we should ask if they wish to continue checking?  If yes, continue, if no exit.
         # Peter Elsner - 7/15/2014
-        print "Continue checking for cruft (Y/n): ";
-        my $Continue=<STDIN>;
-        chomp($Continue);
-        if (!($Continue)) { 
-		$Continue = "Y"; 
-	}
-        $Continue=uc(substr($Continue,0,1));  ## Grab only the first character and uppercase it
-        if ($Continue ne "Y") { 
-           print "Checking stopped!\n";
+        print "continue checking for cruft (Y/n): ";
+        my $continue=<STDIN>;
+        chomp($continue);
+        if (!($continue)) { 
+		    $continue = "Y"; 
+	    }
+        $continue=uc(substr($continue,0,1));  ## Grab only the first character and uppercase it
+        if ($continue ne "Y") { 
            exit_0();
         }
         check_cruft();
