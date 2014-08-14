@@ -364,6 +364,16 @@ sub check_mysql {
             }
         }
     close $fh;
+    my $etc_dbowners = '/etc/dbowners';
+    open ($fh, '<', $etc_dbowners)
+        or warn "could not open $etc_dbowners\n";
+        foreach (<$fh>) {
+            if (/$account/) {
+                push (@results, $etc_dbowners);
+                last;
+            }
+        }
+    close $fh;
 }
 
 sub check_dnsonly {
