@@ -9,7 +9,7 @@ if 0;
 # script to check for remnants of a deleted account, subdomain, addon, parked domain
 # on a cPanel server
 
-# Copyright(c) 2013 cPanel, Inc.
+# Copyright(c) 2014 cPanel, Inc.
 # All rights Reserved.
 # copyright@cpanel.net
 # http://cpanel.net
@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.13';
+my $version = '2.1.14';
 
 use File::Find;
 use Cpanel::MysqlUtils;
