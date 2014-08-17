@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.14';
+my $version = '2.1.15';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -255,7 +255,7 @@ sub check_homedir_exists {
     if (-d $homedir) {
         push (@results, ('homedir - ' . $homedir));
     }
-    if ($homedir ne "\/home\/$username") {  # if the HOMEDIR setting isn't the traditional /home/$account
+    if ($homedir ne "\/home\/$username") {  # if the HOMEDIR setting isn't the traditional /home/$username
         if (-d "/home/$username") {  # also check if the homedir is in the normal home
             push (@results, ('homedir - ' . "/home/$username"));
         }
@@ -341,7 +341,8 @@ sub check_zones {
 }
 
 sub check_mysql {
-    my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"^$account\$\"");
+    # check for mysql users
+    my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"^$username\$\"");
     if ($check_mysql_users =~ /^ERROR/) {
         print "$check_mysql_users\n";
         last;
@@ -354,11 +355,12 @@ sub check_mysql {
             push (@results, ('MySQL user - ' . $_));
         }
     }
+    # check the users.db file
     my $var_cpanel_databases_users = '/var/cpanel/databases/users.db';
     open (my $fh, '<', $var_cpanel_databases_users)
         or warn "could not open $var_cpanel_databases_users\n";
         foreach (<$fh>) {
-            if (/$account/) {
+            if (/$username/) {
                 push (@results, $var_cpanel_databases_users);
                 last;
             }
@@ -368,7 +370,7 @@ sub check_mysql {
     open ($fh, '<', $etc_dbowners)
         or warn "could not open $etc_dbowners\n";
         foreach (<$fh>) {
-            if (/$account/) {
+            if (/$username/) {
                 push (@results, $etc_dbowners);
                 last;
             }
