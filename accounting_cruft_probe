@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.15';
+my $version = '2.1.16';
 
 use File::Find;
 use Cpanel::MysqlUtils;
