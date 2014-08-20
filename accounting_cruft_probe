@@ -24,7 +24,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.15';
+my $version = '2.1.16';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -342,6 +342,7 @@ sub check_zones {
 
 sub check_mysql {
     # check for mysql users
+    my ($dh, $fh);
     my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"^$username\$\"");
     if ($check_mysql_users =~ /^ERROR/) {
         print "$check_mysql_users\n";
@@ -355,17 +356,31 @@ sub check_mysql {
             push (@results, ('MySQL user - ' . $_));
         }
     }
-    # check the users.db file
-    my $var_cpanel_databases_users = '/var/cpanel/databases/users.db';
-    open (my $fh, '<', $var_cpanel_databases_users)
-        or warn "could not open $var_cpanel_databases_users\n";
-        foreach (<$fh>) {
-            if (/$username/) {
-                push (@results, $var_cpanel_databases_users);
-                last;
+    # check through /var/cpanel/databases/*
+    my ($databases_file, @databases_files, @temp);
+    opendir ($dh, '/var/cpanel/databases')
+        or warn "could not open /var/cpanel/databases\n";
+        while ($databases_file = readdir($dh)) {
+            if ($databases_file eq '.' || $databases_file eq '..') {
+                next;  # ignore and move on
             }
+            push (@temp, "/var/cpanel/databases/$databases_file");
         }
-    close $fh;
+    closedir $dh;
+    @databases_files = sort {$a cmp $b} @temp;
+    undef $databases_file;
+    foreach my $databases_file (@databases_files) {
+        open ($fh, '<', $databases_file)
+            or warn "could not open $databases_file\n";
+            foreach (<$fh>) {
+                if (/$username/) {
+                    push (@results, $databases_file);
+                    last;  # to keep duplicated out of @results; [todo] add counter to number of entries in each file, should be function to use multiple times
+                }
+            }
+        close $fh;
+    }
+    # check through /etc/dbowners
     my $etc_dbowners = '/etc/dbowners';
     open ($fh, '<', $etc_dbowners)
         or warn "could not open $etc_dbowners\n";
