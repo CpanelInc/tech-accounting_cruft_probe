@@ -212,7 +212,7 @@ sub check_cruft {
         check_userdata_files();
         check_httpd_conf();
         check_zones();
-        check_mysql();
+        check_sql();
         check_dnsonly();
     }
     if ($subaddonparked) {
@@ -340,7 +340,7 @@ sub check_zones {
     }
 }
 
-sub check_mysql {
+sub check_sql {
     # check for mysql users
     my ($dh, $fh);
     my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"^$username\$\"");
@@ -354,6 +354,17 @@ sub check_mysql {
         @mysql_users = keys %hash;
         foreach (@mysql_users) {
             push (@results, ('MySQL user - ' . $_));
+        }
+    }
+    # check for postgres users
+    my $check_postgres_process = `ps auxf|grep postgres|grep -v grep`;
+    if ($check_postgres_process) {  # if postgres is running
+        my $check_postgres_users = `/usr/bin/psql -t -h localhost --username=postgres -c 'select usename from pg_user'|grep "$username\_"`;  # check for the postgres user
+        if ($check_postgres_users) {
+            my @postgres_users = split ("\n", "$check_postgres_users");
+            foreach (@postgres_users) {
+                push (@results, ('Postgres user -' . $_))
+            }
         }
     }
     # check through /var/cpanel/databases/*
