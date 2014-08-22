@@ -19,15 +19,12 @@ if 0;
 # Modified 7/15/2014 - Peter Elsner (added check option even if account is listed as active)
 
 
-BEGIN {unshift @INC, '/usr/local/cpanel';}
-
 use strict;
 use warnings;
 
 my $version = '2.1.18';
 
 use File::Find;
-use Cpanel::MysqlUtils;
 use Getopt::Long;
 my ($account, $subaddonparked, $help, $manual);
 GetOptions ("account=s" => \$account,
@@ -343,7 +340,7 @@ sub check_zones {
 sub check_sql {
     # check for mysql users
     my ($dh, $fh);
-    my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"^$username\$\"");
+    my $check_mysql_users = `mysql -B -N -e "SELECT User from mysql.user WHERE User REGEXP '^$username\$'"`;
     if ($check_mysql_users =~ /^ERROR/) {
         print "$check_mysql_users\n";
         last;
