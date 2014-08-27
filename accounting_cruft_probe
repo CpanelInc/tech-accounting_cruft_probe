@@ -22,7 +22,7 @@ if 0;
 use strict;
 use warnings;
 
-my $version = '2.1.18';
+my $version = '2.1.19';
 
 use File::Find;
 use Getopt::Long;
@@ -381,7 +381,7 @@ sub check_sql {
         open ($fh, '<', $databases_file)
             or warn "could not open $databases_file\n";
             foreach (<$fh>) {
-                if (/$username/) {
+                if (/: $username$/ || /$username:/) {  # : cptest or cptest:
                     push (@results, $databases_file);
                     last;  # to keep duplicated out of @results; [todo] add counter to number of entries in each file, should be function to use multiple times
                 }
