@@ -2,14 +2,14 @@
 eval 'if [ -x /usr/local/cpanel/3rdparty/bin/perl ]; then exec /usr/local/cpanel/3rdparty/bin/perl -x -- $0 ${1+"$@"}; else exec /usr/bin/perl -x $0 ${1+"$@"}; fi;'
 if 0;
 
-#!/usr/bin/perl
+#!/usr/local/cpanel/3rdparty/bin/perl
 
 # accounting cruft probe
 
 # script to check for remnants of a deleted account, subdomain, addon, parked domain
 # on a cPanel server
 
-# Copyright(c) 2014 cPanel, Inc.
+# Copyright(c) 2013 cPanel, Inc.
 # All rights Reserved.
 # copyright@cpanel.net
 # http://cpanel.net
@@ -17,14 +17,20 @@ if 0;
 
 # maintained by: Blaine Motsinger
 # Modified 7/15/2014 - Peter Elsner (added check option even if account is listed as active)
+# Modified 9/03/2014 - Peter Elsner (fixed shebang line in preparation for Perl 5.14.4 (cp11.46)
+# Modified 5/13/2015 - Peter Elsner (added grep for username to catch when a user name was
+#                      changed via Modify An Account in WHM - Thanks to Marco.
 
+
+BEGIN {unshift @INC, '/usr/local/cpanel';}
 
 use strict;
 use warnings;
 
-my $version = '2.1.19';
+my $version = '2.1.14';
 
 use File::Find;
+use Cpanel::MysqlUtils;
 use Getopt::Long;
 my ($account, $subaddonparked, $help, $manual);
 GetOptions ("account=s" => \$account,
@@ -34,7 +40,7 @@ GetOptions ("account=s" => \$account,
 
 print_intro() && print_help() && exit_0() unless ($account or $subaddonparked or $manual);
 
-my ($username, $domain, $termination_date, $check_for, @userdata_files, @results);
+my ($username, $domain, $termination_date, $check_for, @userdata_files, @results, $tcDomain, $tcUsername, @USERDOMAINS, $userdomainline, $NOTFOUND);
 my $is_active = 0;
 
 
@@ -119,6 +125,7 @@ sub process_options {
 sub check_account_active {
     my $accounting_log = '/var/cpanel/accounting.log';
     my $is_account;
+    $is_account = 0;
     my @temp;
 
     if (defined $username) {
@@ -155,6 +162,39 @@ sub check_account_active {
         }
     close $fh;
 
+    # If the user name was changed via Modify An Account, then the cruft check would
+    # not find anything because it would look only in /var/log/accounting.log.
+	# which is not updated when a username is changed.  
+    # Thanks to Marco for reporting this.  - PSE
+	open(USERDOMAINS,"/etc/userdomains");
+	@USERDOMAINS=<USERDOMAINS>;
+	close(USERDOMAINS);
+	
+	foreach $userdomainline(@USERDOMAINS) { 
+		chomp($userdomainline);
+		($tcDomain,$tcUsername)=(split(/: /,$userdomainline));
+		if ($tcUsername =~ m/nobody/) { 
+			$NOTFOUND=1;
+			last;
+		}
+		if ($tcUsername eq $username) { 
+			last;
+		}
+	}
+	if ($NOTFOUND) { 
+		$tcDomain = "";
+		$tcUsername = "";
+	}
+
+    if ($tcDomain) { 
+      $domain = $tcDomain;
+	  $is_active = 1;
+    }
+    if ($tcUsername) { 
+      $username = $tcUsername;
+	  $is_active = 1;
+    }
+
     print "according to $accounting_log\n";
     if (defined $username and !defined $domain) {  # the check will gather both of the variables from the accounting.log, if the account has been on the server
         print "$username has never been an active account\n";
@@ -168,14 +208,15 @@ sub check_account_active {
         print "$domain ($username) is still an active account\n";
         # here we should ask if they wish to continue checking?  If yes, continue, if no exit.
         # Peter Elsner - 7/15/2014
-        print "continue checking for cruft (Y/n): ";
-        my $continue=<STDIN>;
-        chomp($continue);
-        if (!($continue)) { 
-		    $continue = "Y"; 
-	    }
-        $continue=uc(substr($continue,0,1));  ## Grab only the first character and uppercase it
-        if ($continue ne "Y") { 
+        print "Continue checking for cruft (Y/n): ";
+        my $Continue=<STDIN>;
+        chomp($Continue);
+        if (!($Continue)) { 
+		$Continue = "Y"; 
+	}
+        $Continue=uc(substr($Continue,0,1));  ## Grab only the first character and uppercase it
+        if ($Continue ne "Y") { 
+           print "Checking stopped!\n";
            exit_0();
         }
         check_cruft();
@@ -209,7 +250,7 @@ sub check_cruft {
         check_userdata_files();
         check_httpd_conf();
         check_zones();
-        check_sql();
+        check_mysql();
         check_dnsonly();
     }
     if ($subaddonparked) {
@@ -252,7 +293,7 @@ sub check_homedir_exists {
     if (-d $homedir) {
         push (@results, ('homedir - ' . $homedir));
     }
-    if ($homedir ne "\/home\/$username") {  # if the HOMEDIR setting isn't the traditional /home/$username
+    if ($homedir ne "\/home\/$username") {  # if the HOMEDIR setting isn't the traditional /home/$account
         if (-d "/home/$username") {  # also check if the homedir is in the normal home
             push (@results, ('homedir - ' . "/home/$username"));
         }
@@ -337,10 +378,8 @@ sub check_zones {
     }
 }
 
-sub check_sql {
-    # check for mysql users
-    my ($dh, $fh);
-    my $check_mysql_users = `mysql -B -N -e "SELECT User from mysql.user WHERE User REGEXP '^$username\$'"`;
+sub check_mysql {
+    my $check_mysql_users = Cpanel::MysqlUtils::sqlcmd("SELECT User from mysql.user WHERE User REGEXP \"^$account\$\"");
     if ($check_mysql_users =~ /^ERROR/) {
         print "$check_mysql_users\n";
         last;
@@ -353,48 +392,12 @@ sub check_sql {
             push (@results, ('MySQL user - ' . $_));
         }
     }
-    # check for postgres users
-    my $check_postgres_process = `ps auxf|grep postgres|grep -v grep`;
-    if ($check_postgres_process) {  # if postgres is running
-        my $check_postgres_users = `/usr/bin/psql -t -h localhost --username=postgres -c 'select usename from pg_user'|grep "$username\_"`;  # check for the postgres user
-        if ($check_postgres_users) {
-            my @postgres_users = split ("\n", "$check_postgres_users");
-            foreach (@postgres_users) {
-                push (@results, ('Postgres user -' . $_))
-            }
-        }
-    }
-    # check through /var/cpanel/databases/*
-    my ($databases_file, @databases_files, @temp);
-    opendir ($dh, '/var/cpanel/databases')
-        or warn "could not open /var/cpanel/databases\n";
-        while ($databases_file = readdir($dh)) {
-            if ($databases_file eq '.' || $databases_file eq '..') {
-                next;  # ignore and move on
-            }
-            push (@temp, "/var/cpanel/databases/$databases_file");
-        }
-    closedir $dh;
-    @databases_files = sort {$a cmp $b} @temp;
-    undef $databases_file;
-    foreach my $databases_file (@databases_files) {
-        open ($fh, '<', $databases_file)
-            or warn "could not open $databases_file\n";
-            foreach (<$fh>) {
-                if (/: $username$/ || /$username:/) {  # : cptest or cptest:
-                    push (@results, $databases_file);
-                    last;  # to keep duplicated out of @results; [todo] add counter to number of entries in each file, should be function to use multiple times
-                }
-            }
-        close $fh;
-    }
-    # check through /etc/dbowners
-    my $etc_dbowners = '/etc/dbowners';
-    open ($fh, '<', $etc_dbowners)
-        or warn "could not open $etc_dbowners\n";
+    my $var_cpanel_databases_users = '/var/cpanel/databases/users.db';
+    open (my $fh, '<', $var_cpanel_databases_users)
+        or warn "could not open $var_cpanel_databases_users\n";
         foreach (<$fh>) {
-            if (/$username/) {
-                push (@results, $etc_dbowners);
+            if (/$account/) {
+                push (@results, $var_cpanel_databases_users);
                 last;
             }
         }
