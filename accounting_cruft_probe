@@ -15,19 +15,20 @@ if 0;
 # http://cpanel.net
 # Unauthorized copying is prohibited
 
-# maintained by: Blaine Motsinger
-# Modified 7/15/2014 - Peter Elsner (added check option even if account is listed as active)
-# Modified 9/03/2014 - Peter Elsner (fixed shebang line in preparation for Perl 5.14.4 (cp11.46)
-# Modified 5/13/2015 - Peter Elsner (added grep for username to catch when a user name was
+# Originally created  by: Blaine Motsinger
+# Currently maintained by: Peter Elsner
+# Modified 7/15/2014 - added check option even if account is listed as active
+# Modified 9/03/2014 - fixed shebang line in preparation for Perl 5.14.4 (cp11.46)
+# Modified 5/13/2015 - added grep for username to catch when a user name was
 #                      changed via Modify An Account in WHM - Thanks to Marco.
-
+# Modified 7/7/2015  - Added check for /var/cpanel/database/$username.json file (reported by benny)
 
 BEGIN {unshift @INC, '/usr/local/cpanel';}
 
 use strict;
 use warnings;
 
-my $version = '2.1.14';
+my $version = '2.1.15';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -402,6 +403,10 @@ sub check_mysql {
             }
         }
     close $fh;
+    # Check for existance of $username.json file
+    if (-e("/var/cpanel/databases/$username.json")) { 
+        push(@results, "$username.json file present in /var/cpanel/databases");
+    }
 }
 
 sub check_dnsonly {
