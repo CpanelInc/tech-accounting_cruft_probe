@@ -22,13 +22,15 @@ if 0;
 # Modified 5/13/2015 - added grep for username to catch when a user name was
 #                      changed via Modify An Account in WHM - Thanks to Marco.
 # Modified 7/7/2015  - Added check for /var/cpanel/database/$username.json file (reported by benny)
+# Modified 7/18/2015 - Fixed bug with sub/addon/parked domains.  @users_files array was empty.
+#			Honestly not sure how that ever worked!
 
 BEGIN {unshift @INC, '/usr/local/cpanel';}
 
 use strict;
 use warnings;
 
-my $version = '2.1.15';
+my $version = '2.1.16';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -418,16 +420,17 @@ sub check_dnsonly {
 
 # subaddonparked checks
 sub check_subaddonparked_active {
-    my ($users_file, @users_files);
-    opendir (my $dh, '/var/cpanel/users')
-        or warn "could not open /var/cpanel/users\n";
-        while ($users_file = readdir($dh)) {
-            if ($users_file =~ '.' ) {  # if '.', '..', or .whatever; account names cannot have periods
-                next;  # ignore and move on
-            }
-            push (@users_files, "/var/cpanel/users/$users_file");
-        }
-    closedir $dh;
+    my ($users_file, @users_files, @allusers);
+	opendir(my $dh, '/var/cpanel/users');
+	@allusers=readdir($dh);
+	closedir($dh);
+	foreach $users_file(@allusers) { 
+		chomp($users_file);
+		if ($users_file eq "." or $users_file eq "..") { 
+			next;
+		}
+		push(@users_files, "/var/cpanel/users/$users_file");
+	}
     undef $users_file;
     foreach my $users_file (@users_files) {
         open (my $fh, '<', $users_file)
@@ -447,6 +450,7 @@ sub check_subaddonparked_active {
             }
         close $fh;
     }
+
 
     print "according to /var/cpanel/users/*\n";
     if ($is_active == 1) {
