@@ -24,13 +24,15 @@ if 0;
 # Modified 7/7/2015  - Added check for /var/cpanel/database/$username.json file (reported by benny)
 # Modified 7/18/2015 - Fixed bug with sub/addon/parked domains.  @users_files array was empty.
 #			Honestly not sure how that ever worked!
+# Modified 7/26/2015 - Added check for /etc/dbowners and many other files missing under /etc 
+#        Thanks to Richard Asp for the recommendation.
 
 BEGIN {unshift @INC, '/usr/local/cpanel';}
 
 use strict;
 use warnings;
 
-my $version = '2.1.16';
+my $version = '2.1.17';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -304,7 +306,8 @@ sub check_homedir_exists {
 }
 
 sub check_userdomains {
-    my @files = qw(/etc/userdomains /etc/userdatadomains /etc/trueuserdomains);
+    #my @files = qw(/etc/userdomains /etc/userdatadomains /etc/trueuserdomains);
+    my @files = qw(/etc/userdomains /etc/userdatadomains /etc/trueuserdomains /etc/dbowners /etc/quota.conf /etc/domainusers /etc/trueuserowners /etc/localdomains /etc/remotedomains /etc/demousers /etc/demoids /etc/demodomains);
     foreach my $file (@files) {
         open(my $FH, '<', $file)
             or warn "could not open $file\n";
