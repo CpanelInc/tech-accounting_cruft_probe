@@ -307,7 +307,7 @@ sub check_homedir_exists {
 
 sub check_userdomains {
     #my @files = qw(/etc/userdomains /etc/userdatadomains /etc/trueuserdomains);
-    my @files = qw(/etc/userdomains /etc/userdatadomains /etc/trueuserdomains /etc/dbowners /etc/quota.conf /etc/domainusers /etc/trueuserowners /etc/localdomains /etc/remotedomains /etc/demousers /etc/demoids /etc/demodomains);
+    my @files = qw(/etc/userdomains /etc/userdatadomains /etc/trueuserdomains /etc/dbowners /etc/quota.conf /etc/domainusers /etc/trueuserowners /etc/localdomains /etc/remotedomains /etc/demousers /etc/demouids /etc/demodomains);
     foreach my $file (@files) {
         open(my $FH, '<', $file)
             or warn "could not open $file\n";
