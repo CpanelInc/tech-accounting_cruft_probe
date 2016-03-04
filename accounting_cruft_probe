@@ -1,7 +1,3 @@
-#!/bin/sh
-eval 'if [ -x /usr/local/cpanel/3rdparty/bin/perl ]; then exec /usr/local/cpanel/3rdparty/bin/perl -x -- $0 ${1+"$@"}; else exec /usr/bin/perl -x $0 ${1+"$@"}; fi;'
-if 0;
-
 #!/usr/local/cpanel/3rdparty/bin/perl
 
 # accounting cruft probe
@@ -26,13 +22,15 @@ if 0;
 #			Honestly not sure how that ever worked!
 # Modified 7/26/2015 - Added check for /etc/dbowners and many other files missing under /etc 
 #        Thanks to Richard Asp for the recommendation.
+# Modified 3/4/2016 - Fixed check on files which was only checking domain name and not username
+#        Thanks to Kaden Pownall for the info.
 
 BEGIN {unshift @INC, '/usr/local/cpanel';}
 
 use strict;
 use warnings;
 
-my $version = '2.1.17';
+my $version = '2.1.18';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -312,7 +310,7 @@ sub check_userdomains {
         open(my $FH, '<', $file)
             or warn "could not open $file\n";
             foreach (<$FH>) {
-                if (/^$domain/) {
+                if (/^$domain/ or /\b$username\b/) {
                     push (@results, $file);
                 }
             }
