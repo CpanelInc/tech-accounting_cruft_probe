@@ -19,18 +19,20 @@
 #                      changed via Modify An Account in WHM - Thanks to Marco.
 # Modified 7/7/2015  - Added check for /var/cpanel/database/$username.json file (reported by benny)
 # Modified 7/18/2015 - Fixed bug with sub/addon/parked domains.  @users_files array was empty.
-#			Honestly not sure how that ever worked!
+#			           Honestly not sure how that ever worked!
 # Modified 7/26/2015 - Added check for /etc/dbowners and many other files missing under /etc 
-#        Thanks to Richard Asp for the recommendation.
-# Modified 3/4/2016 - Fixed check on files which was only checking domain name and not username
-#        Thanks to Kaden Pownall for the info.
+#                      Thanks to Richard Asp for the recommendation.
+# Modified 3/4/2016 -  Fixed check on files which was only checking domain name and not username
+#                      Thanks to Kaden Pownall for the info.
+# Modified 7/7/2016 -  Add check for /etc/vfilters and /etc/valiases directories - Thanks to
+# 	                   Kyle Pinkley for the recommendation.
 
 BEGIN {unshift @INC, '/usr/local/cpanel';}
 
 use strict;
 use warnings;
 
-my $version = '2.1.18';
+my $version = '2.1.19';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -255,6 +257,8 @@ sub check_cruft {
         check_zones();
         check_mysql();
         check_dnsonly();
+		check_valiases();
+		check_vfilters();
     }
     if ($subaddonparked) {
         check_userdomains();
@@ -270,6 +274,8 @@ sub check_cruft {
         search("$domain", '/var/cpanel/users/*');
         search("$domain", '/var/cpanel/userdata/*/*');
         search("$domain", '/usr/local/apache/conf/*');
+		check_valiases();
+		check_vfilters();
     }
 }
 
@@ -500,6 +506,36 @@ sub check_users_files {  # yes, having double code in here from earlier, attempt
     }
 }
 
+sub check_valiases {  # /etc/valiases 
+	my ($valiases_dir,@valiases_dir);
+	opendir (my $dh, '/etc/valiases') or warn "Could not open /etc/valiases directory\n";
+	while ($valiases_dir = readdir($dh)) { 
+		if ($valiases_dir eq '.' || $valiases_dir eq '..') { 
+			next;
+		}
+		if ($valiases_dir eq $domain) { 
+			push (@results, "/etc/valiases/$valiases_dir");
+		}
+	}
+	closedir $dh;
+	undef $valiases_dir;
+}
+
+sub check_vfilters {  # /etc/vfilters 
+	my ($vfilters_dir,@vfilters_dir);
+	opendir (my $dh, '/etc/vfilters') or warn "Could not open /etc/vfilters directory\n";
+	while ($vfilters_dir = readdir($dh)) { 
+		if ($vfilters_dir eq '.' || $vfilters_dir eq '..') { 
+			next;
+		}
+		if ($vfilters_dir eq $domain) { 
+			push (@results, "/etc/valiases/$vfilters_dir");
+		}
+	}
+	closedir $dh;
+	undef $vfilters_dir;
+}
+
 ## manual checks
 sub print_disclaimer {
     print "please be aware that manual mode contains no checks if the domain is active on the server.\n" .
@@ -509,7 +545,8 @@ sub print_disclaimer {
 
 sub search {
     if (@_ != 2) {print "WARNING! &search needs two arguments\n"; return -1;}
-    chomp (my @temp = `grep $_[0] $_[1]|grep -v ',v:'|grep -v 'Binary'|cut -d':' -f1`);
+    #chomp (my @temp = `grep $_[0] $_[1]|grep -v ',v:'|grep -v 'Binary'|cut -d':' -f1`);
+    chomp (my @temp = `grep -rl $_[0] $_[1]|grep -v ',v:'|grep -v 'Binary' | grep -v ',v'|cut -d':' -f1`);
     my %hash = map {$_, 1} @temp;
     @temp = keys %hash;
     foreach (@temp) {
