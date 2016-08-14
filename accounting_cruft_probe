@@ -26,13 +26,15 @@
 #                      Thanks to Kaden Pownall for the info.
 # Modified 7/7/2016 -  Add check for /etc/vfilters and /etc/valiases directories - Thanks to
 # 	                   Kyle Pinkley for the recommendation.
+# Bug Fix 8/14/2016 -  Angela found a bug if the username had changed and you search by domain
+#                      name. Casued uninitialized string error. 
 
 BEGIN {unshift @INC, '/usr/local/cpanel';}
 
 use strict;
 use warnings;
 
-my $version = '2.1.19';
+my $version = '2.1.20';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -182,9 +184,17 @@ sub check_account_active {
 			$NOTFOUND=1;
 			last;
 		}
-		if ($tcUsername eq $username) { 
-			last;
+        if (defined $username) { 
+		    if ($tcUsername eq $username) { 
+			    last;
+            }
 		}
+        else { 
+        if (defined $domain) { 
+		    if ($tcDomain eq $domain) { 
+			    last;
+            }
+        }
 	}
 	if ($NOTFOUND) { 
 		$tcDomain = "";
