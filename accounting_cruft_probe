@@ -34,7 +34,7 @@ BEGIN {unshift @INC, '/usr/local/cpanel';}
 use strict;
 use warnings;
 
-my $version = '2.1.20';
+my $version = '2.1.21';
 
 use File::Find;
 use Cpanel::MysqlUtils;
@@ -190,9 +190,10 @@ sub check_account_active {
             }
 		}
         else { 
-        if (defined $domain) { 
-		    if ($tcDomain eq $domain) { 
-			    last;
+            if (defined $domain) { 
+		        if ($tcDomain eq $domain) { 
+			        last;
+                }
             }
         }
 	}
@@ -320,7 +321,6 @@ sub check_homedir_exists {
 }
 
 sub check_userdomains {
-    #my @files = qw(/etc/userdomains /etc/userdatadomains /etc/trueuserdomains);
     my @files = qw(/etc/userdomains /etc/userdatadomains /etc/trueuserdomains /etc/dbowners /etc/quota.conf /etc/domainusers /etc/trueuserowners /etc/localdomains /etc/remotedomains /etc/demousers /etc/demouids /etc/demodomains);
     foreach my $file (@files) {
         open(my $FH, '<', $file)
