@@ -60,6 +60,8 @@ process_options();  # the route through the script is determined by switches and
 sub print_intro {
     print "accounting_cruft_probe\n" .
           "version $version\n\n";
+    print "NOTICE: This script is deprecated. It will eventually be removed. Please consider\n" . 
+        "using https://github.com/cPanelPeter/acctinfo --cruft instead.\n\n";
 }
 
 sub print_help {
